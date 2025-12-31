@@ -17,14 +17,35 @@ class _ImageToPdfState extends State<ImageToPdf> {
   bool _isConverting = false;
 
   Future<void> _requestStoragePermission() async {
-    if (await Permission.manageExternalStorage.isGranted) return;
+    if (Platform.isAndroid) {
+      if (await Permission.storage.isGranted) {
+        return;
+      }
 
-    var status = await Permission.manageExternalStorage.request();
-    if (!status.isGranted) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Izin akses penyimpanan diperlukan")),
-      );
+      if (await Permission.storage.request().isGranted) {
+        return;
+      }
+
+      if (Platform.isAndroid &&
+          (await Permission.manageExternalStorage.status.isDenied ||
+              await Permission
+                  .manageExternalStorage
+                  .status
+                  .isPermanentlyDenied)) {
+        var status = await Permission.manageExternalStorage.request();
+        if (!status.isGranted) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                "Akses semua file diperlukan untuk memilih gambar. Silakan aktifkan di pengaturan.",
+              ),
+            ),
+          );
+          // Arahkan ke pengaturan
+          await openAppSettings();
+        }
+      }
     }
   }
 
@@ -90,13 +111,13 @@ class _ImageToPdfState extends State<ImageToPdf> {
         ),
       );
 
-      final dir = Directory('/storage/emulated/0/easy-pdf/image-to-pdf');
+      final dir = Directory('/storage/emulated/0/Download/easy-pdf');
       if (!await dir.exists()) {
         await dir.create(recursive: true);
       }
 
       final fileName =
-          'image-to-pdf_${DateTime.now().millisecondsSinceEpoch}.pdf';
+          'image_to_pdf_${DateTime.now().millisecondsSinceEpoch}.pdf';
       final filePath = '${dir.path}/$fileName';
       final file = File(filePath);
       final pdfBytes = await pdf.save();
@@ -130,10 +151,7 @@ class _ImageToPdfState extends State<ImageToPdf> {
                   ),
                   child: Text(
                     filePath,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colors.surface,
-                    ),
+                    style: TextStyle(fontSize: 12, color: colors.surface),
                   ),
                 ),
                 const SizedBox(height: 8),
